@@ -1,0 +1,5 @@
+wheel
+requests
+ffmpeg-python
+mutagen
+music-tag
