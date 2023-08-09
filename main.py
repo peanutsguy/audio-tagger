@@ -16,7 +16,7 @@ args = vars(argParser.parse_args())
 def transcode(filename,nfilename):
     ffmpeg.input(filename).output(nfilename,map_metadata=-1,ar=44100,ac=2,**{'b:a':'192k'}).run()
 
-def tag_file(filename,fields):
+def tag_file(filename,fields,full=True):
     audio = music_tag.load_file(filename)
 
     audio["tracktitle"] = fields["title"]
@@ -24,9 +24,11 @@ def tag_file(filename,fields):
     audio["album"] = fields["album"]
     audio["year"] = fields["year"]
     audio["albumartist"] = fields["artist"]
-    audio["tracknumber"] = fields["tracknumber"]
-    audio["discnumber"] = fields["discnumber"]
     audio["comment"] = fields["link"]
+
+    if full:
+        audio["tracknumber"] = fields["tracknumber"]
+        audio["discnumber"] = fields["discnumber"]
 
     audio.save()
 
@@ -52,17 +54,29 @@ os.remove("clip.flac")
 
 if json.loads(output)["result"] is not None :
     result = json.loads(output)["result"]
-    fields = {
-        "title" : result["spotify"]["name"],
-        "artist" : result["artist"],
-        "album" : result["spotify"]["album"]["name"],
-        "date" : result["release_date"],
-        "year" : datetime.datetime.strptime(result["release_date"],'%Y-%m-%d').strftime("%Y"),
-        "tracknumber" : result["spotify"]["track_number"],
-        "discnumber" : result["spotify"]["disc_number"],
-        "label" : result["label"],
-        "link" : result["song_link"]
-    }
+    if "spotify" in result:
+        fields = {
+            "title" : result["spotify"]["name"],
+            "artist" : result["artist"],
+            "album" : result["spotify"]["album"]["name"],
+            "date" : result["release_date"],
+            "year" : datetime.datetime.strptime(result["release_date"],'%Y-%m-%d').strftime("%Y"),
+            "tracknumber" : result["spotify"]["track_number"],
+            "discnumber" : result["spotify"]["disc_number"],
+            "label" : result["label"],
+            "link" : result["song_link"]
+        }
+    else:
+        fields = {
+            "title" : result["title"],
+            "artist" : result["artist"],
+            "album" : result["album"],
+            "date" : result["release_date"],
+            "year" : datetime.datetime.strptime(result["release_date"],'%Y-%m-%d').strftime("%Y"),
+            "tracknumber" : 0,
+            "label" : result["label"],
+            "link" : result["song_link"]
+        }
 
     base = Path(filename)
     npath = ofolder + "/" + fields["artist"] + "/" + fields["album"]
@@ -75,6 +89,9 @@ if json.loads(output)["result"] is not None :
         nfilename = npath + "/" + str(fields["tracknumber"]).zfill(2) + " - " + fields["title"] + ".mp3"
         transcode(filename,nfilename)
 
-    tag_file(nfilename,fields)
+    if "spotify" in result:
+        tag_file(nfilename,fields)
+    else:
+        tag_file(nfilename,fields,False)
 else:
     print("No match")
